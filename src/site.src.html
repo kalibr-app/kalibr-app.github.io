@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>КАЛИБР</title>
+%%FONTS%%
+<style>
+  /* Ночной циферблат: тёмно-синяя глубина, латунь как металл индексов, сталь как текст. Слева текст, справа прибор. */
+  :root{
+    --abyss:#04070f; --deep:#0b1630; --ink:#eceef2; --soft:#c4cad6; --mist:#8e97a8; --line:rgba(206,214,228,.12); --line2:rgba(206,214,228,.22);
+    --brass:#d6b678; --brass-hi:#f1dcaa; --teal:#6fc8b8; --ember:#e08a72;
+    --f:%%FAMILY%%,system-ui,sans-serif;
+    color-scheme:dark; --pad:clamp(20px,4vw,56px); --max:1240px; --gut:max(var(--pad),calc((100vw - var(--max)) / 2 + var(--pad)));
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--abyss);scroll-behavior:smooth;scroll-padding-top:80px}
+  body{background:var(--abyss);color:var(--ink);font-family:var(--f);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.55}
+  a{color:inherit;text-decoration:none} button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  :focus-visible{outline:1.5px solid var(--brass);outline-offset:3px;border-radius:6px}
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 var(--pad)}
+  h2,h3{text-wrap:balance}
+  /* шапка */
+  .top{position:fixed;inset:0 0 auto 0;z-index:30;display:flex;align-items:center;gap:26px;padding:calc(20px + env(safe-area-inset-top,0px)) var(--gut) 20px;transition:background .4s}
+  .top.solid{background:rgba(4,7,15,.8);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .mark{font-weight:520;font-size:15px;letter-spacing:.42em;margin-right:auto;white-space:nowrap}
+  .chap{display:flex;gap:20px;font-size:13.5px;font-weight:380;color:var(--mist)}
+  .chap a{position:relative;padding:6px 0;transition:color .3s;white-space:nowrap}
+  .chap a:hover,.chap a.on{color:var(--ink)}
+  .chap a::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--brass);transform:scaleX(0);transform-origin:left;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+  .chap a:hover::after,.chap a.on::after{transform:scaleX(1)}
+  .menu-btn{display:none;font-size:14px;border:1px solid var(--line2);padding:9px 16px;border-radius:999px}
+  .tg{font-size:14px;font-weight:440;color:var(--brass-hi);border:1px solid rgba(214,182,120,.35);padding:9px 16px;border-radius:999px;white-space:nowrap}
+  .sheet{position:fixed;inset:0;z-index:40;background:rgba(4,7,15,.96);display:none;flex-direction:column;padding:90px var(--pad) 40px;gap:2px;overflow:auto}
+  .sheet.open{display:flex}
+  .sheet a{font-size:26px;font-weight:220;padding:10px 0;border-bottom:1px solid var(--line)}
+  .sheet a span{display:inline-block;width:2.2em;color:var(--mist);font-size:15px;font-weight:400}
+  .sheet .x{position:absolute;top:22px;right:var(--pad);font-size:14px;border:1px solid var(--line2);padding:9px 16px;border-radius:999px}
+  /* первый экран */
+  .hero{position:relative;overflow:hidden;min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);align-items:center;padding:96px var(--gut) 150px;background:radial-gradient(1100px 860px at 74% 46%,#0c1a3a 0%,#060b18 52%,var(--abyss) 100%)}
+  .hello{display:inline-flex;gap:10px;align-items:center;font-size:13px;color:var(--soft);border:1px solid var(--line2);border-radius:999px;padding:7px 14px;margin-bottom:30px}
+  .hello i{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px rgba(111,200,184,.14)}
+  .kicker{font-size:15px;color:var(--brass-hi);margin-bottom:22px}
+  h1{font-weight:150;font-size:clamp(52px,6.4vw,112px);line-height:.98;letter-spacing:-.035em}
+  .lead{max-width:31em;margin-top:30px;font-size:clamp(17px,1.25vw,20px);line-height:1.6;font-weight:320;color:var(--soft)}
+  .lead b{font-weight:420;color:var(--ink)}
+  .cta{display:flex;gap:14px;margin-top:40px;flex-wrap:wrap}
+  .btn{font-size:15px;font-weight:470;padding:15px 24px;border-radius:999px;border:1px solid rgba(214,182,120,.55);color:var(--abyss);background:linear-gradient(180deg,var(--brass-hi),var(--brass));display:inline-block}
+  .btn.ghost{background:none;color:var(--ink);border-color:var(--line2)}
+  .stage{position:relative;height:min(68vh,760px)}
+  #dial{position:absolute;inset:-4% -6% -4% -2%;width:108%;height:108%}
+  #dial2d{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  #dial2d[hidden]{display:none}
+  .kdial{width:min(100%,600px);display:block;overflow:visible;filter:drop-shadow(0 34px 60px rgba(0,0,0,.5))}
+  .kd-ax{font:600 10.5px var(--f);letter-spacing:.16em;text-transform:uppercase;fill:#C9D3E6;fill-opacity:.8}
+  .kd-v{font:700 11px var(--f);fill:#F0D99C;font-variant-numeric:tabular-nums}
+  .kd-brand{font:600 12.5px var(--f);letter-spacing:.55em;fill:#E9EEF8;fill-opacity:.92}
+  .kd-model{font:300 17px var(--f);fill:#C9D3E6;fill-opacity:.9}
+  .cap{position:absolute;left:var(--gut);bottom:34px;max-width:30em;font-size:13px;line-height:1.55;color:var(--mist);font-weight:340}
+  .cap i{font-style:normal;color:var(--brass-hi)}
+  .count{position:absolute;right:var(--gut);bottom:30px;display:flex;gap:46px}
+  .count div{display:flex;flex-direction:column;gap:4px}
+  .count b{font-weight:180;font-size:36px;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+  .count span{font-size:12.5px;color:var(--mist)}
+  /* общее для разделов */
+  section.s{padding:140px 0 30px;position:relative}
+  .eyebrow{font-size:14px;color:var(--brass-hi);margin-bottom:18px}
+  h2{font-weight:180;font-size:clamp(36px,4.1vw,66px);line-height:1.04;letter-spacing:-.03em;max-width:17em}
+  .intro{max-width:40em;margin-top:22px;font-size:18px;font-weight:320;color:var(--soft)}
+  .mut{color:var(--mist)} .gold{color:var(--brass-hi)}
+  .tag{display:inline-block;font-size:12px;font-weight:460;padding:4px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--soft);white-space:nowrap}
+  .tag.ok{color:var(--teal);border-color:rgba(111,200,184,.4)} .tag.demo{color:var(--brass-hi);border-color:rgba(214,182,120,.4)} .tag.soon{color:var(--mist)}
+  .src{font-size:12px;color:var(--mist);line-height:1.5}
+  .src a{border-bottom:1px solid var(--line2)}
+  .seg{display:flex;gap:8px;flex-wrap:wrap}
+  .seg button{font-size:14px;padding:10px 16px;border-radius:999px;border:1px solid var(--line2);color:var(--soft);transition:background .25s,color .25s}
+  .seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--ink);color:var(--abyss);border-color:var(--ink)}
+  /* история */
+  .hist{display:grid;grid-template-columns:repeat(4,1fr);margin-top:64px;border-top:1px solid var(--line2)}
+  .hist article{padding:30px 28px 10px 0;position:relative;min-width:0}
+  .hist article::before{content:"";position:absolute;top:-5px;left:0;width:9px;height:9px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 4px rgba(214,182,120,.15)}
+  .hist .n{font-size:13px;color:var(--mist)}
+  .hist h3{font-weight:300;font-size:24px;margin:10px 0 12px;letter-spacing:-.01em}
+  .hist p{font-size:15.5px;color:var(--soft);font-weight:320}
+  .hist .big{display:flex;gap:26px;margin-top:22px}
+  .hist .big b{display:block;font-weight:180;font-size:44px;line-height:1;color:var(--brass-hi)}
+  .hist .big span{font-size:12.5px;color:var(--mist)}
+  /* рынок */
+  .money-line{margin-top:56px;display:grid;grid-template-columns:auto 1fr;gap:44px;align-items:center;padding:34px 38px;border-radius:24px;border:1px solid rgba(214,182,120,.22);background:linear-gradient(135deg,rgba(214,182,120,.09),rgba(255,255,255,.01))}
+  .money-line b{font-weight:150;font-size:clamp(56px,6vw,96px);line-height:.9;letter-spacing:-.035em;color:var(--brass-hi);white-space:nowrap}
+  .money-line b small{font-size:.38em;letter-spacing:0;font-weight:300}
+  .money-line p{font-size:18px;color:var(--soft);font-weight:320}
+  .circles{margin-top:56px}
+  .cpanel{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:56px}
+  .cpanel h4{font-size:14px;color:var(--mist);font-weight:400;margin-bottom:14px}
+  .facts{display:grid;gap:0}
+  .facts div{padding:16px 0;border-top:1px solid var(--line)}
+  .facts b{display:block;font-weight:200;font-size:32px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-bottom:8px}
+  .facts span{display:block;font-size:15px;color:var(--soft);max-width:34em}
+  .facts span small{display:block;font-size:12px;color:var(--mist);margin-top:3px}
+  .facts span small a{border-bottom:1px solid var(--line2)}
+  .scen{margin-top:96px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:56px;align-items:start}
+  .scen h3{font-weight:220;font-size:clamp(28px,2.6vw,40px);letter-spacing:-.02em;line-height:1.1}
+  .scen .seg{margin-top:24px}
+  .sview{border:1px solid var(--line);border-radius:24px;padding:30px 32px;background:linear-gradient(180deg,#0a1328,#070d1c)}
+  .sview .row{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .sview .row b{display:block;white-space:nowrap;font-weight:160;font-size:clamp(34px,3.3vw,52px);line-height:1;letter-spacing:-.03em;color:var(--brass-hi);font-variant-numeric:tabular-nums}
+  .sview .row span{font-size:13.5px;color:var(--mist)}
+  .sview p{margin-top:22px;font-size:16px;color:var(--soft)}
+  .bars{margin-top:24px;display:grid;gap:8px}
+  .bars div{display:grid;grid-template-columns:10.5em 1fr 5.4em;gap:12px;align-items:center;font-size:13px;color:var(--mist)}
+  .bars i{height:6px;border-radius:6px;background:rgba(206,214,228,.1);position:relative;overflow:hidden}
+  .bars i b{position:absolute;inset:0 auto 0 0;border-radius:6px;background:rgba(214,182,120,.35);transition:width .6s cubic-bezier(.2,.8,.2,1)}
+  .bars div.on{color:var(--ink)} .bars div.on i b{background:linear-gradient(90deg,#9c7838,var(--brass-hi))}
+  .bars em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .why{margin-top:96px;display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
+  .why div{border-top:1px solid var(--line2);padding-top:22px}
+  .why b{display:block;font-weight:180;font-size:46px;line-height:1;letter-spacing:-.02em;color:var(--brass-hi)}
+  .why p{margin-top:14px;font-size:15.5px;color:var(--soft)}
+  .why .src{margin-top:10px}
+  /* механизм */
+  .proof{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:22px;overflow:hidden}
+  .proof div{padding:26px 28px;border-right:1px solid var(--line)}
+  .proof div:last-child{border-right:0;background:linear-gradient(180deg,rgba(111,200,184,.06),transparent)}
+  .proof .k{font-size:12.5px;color:var(--mist);margin-bottom:10px;display:block}
+  .proof p{font-size:17px;font-weight:300}
+  .proof s{color:var(--mist);text-decoration-color:var(--ember)}
+  .mech{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:56px;margin-top:64px}
+  .layers{display:flex;flex-direction:column;gap:2px}
+  .layers button{text-align:left;display:flex;gap:16px;align-items:baseline;padding:15px 18px;border-radius:14px;color:var(--mist);transition:background .3s,color .3s}
+  .layers button .n{font-size:13px;min-width:1.6em}
+  .layers button b{font-weight:330;font-size:19px}
+  .layers button[aria-selected="true"]{background:rgba(214,182,120,.08);color:var(--ink)}
+  .layers button[aria-selected="true"] .n{color:var(--brass-hi)}
+  .layer-view{min-height:400px;border-left:1px solid var(--line);padding-left:56px;min-width:0}
+  .layer-view h3{font-weight:200;font-size:clamp(30px,2.8vw,44px);letter-spacing:-.02em;line-height:1.08}
+  .layer-view p{margin-top:20px;font-size:18px;color:var(--soft);font-weight:320;max-width:34em}
+  .layer-view .viz{margin-top:30px}
+  .lfacts{display:flex;gap:40px;margin-top:30px}
+  .lfacts b{display:block;font-weight:180;font-size:42px;line-height:1;color:var(--brass-hi)}
+  .lfacts span{font-size:12.5px;color:var(--mist)}
+  .codeline{margin-top:64px;font-size:17px;color:var(--soft);max-width:52em;border-left:2px solid var(--brass);padding-left:20px}
+  .codeline b{color:var(--brass-hi);font-weight:420}
+  /* методики */
+  .filters{margin-top:46px}
+  .meth{display:grid;grid-template-columns:repeat(3,1fr);gap:0 40px;margin-top:30px}
+  .meth .m{padding:22px 0;border-top:1px solid var(--line)}
+  .meth .m.off{display:none}
+  .meth .m h4{font-weight:380;font-size:17.5px;margin:10px 0 6px}
+  .meth .m p{font-size:14.5px;color:var(--mist)}
+  .fine{margin-top:24px;font-size:12.5px;color:var(--mist);max-width:60em}
+  .moat{margin-top:80px;display:grid;grid-template-columns:1fr 1fr;gap:70px}
+  .moat ol{list-style:none;counter-reset:m;display:grid;gap:16px}
+  .moat li{counter-increment:m;display:grid;grid-template-columns:2.2em 1fr;font-size:16.5px;color:var(--soft)}
+  .moat li::before{content:counter(m);color:var(--brass-hi);font-size:14px;padding-top:2px}
+  .moat h3{font-weight:220;font-size:32px;letter-spacing:-.02em;margin-bottom:22px}
+  .wall{display:grid;gap:18px}
+  .wall div{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:14px}
+  .wall b{font-weight:200;font-size:30px;color:var(--brass-hi);min-width:3.4em}
+  .wall span{font-size:15px;color:var(--soft)}
+  /* продукт и путь */
+  .journey{margin-top:60px;display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:56px;align-items:start}
+  .steps{display:flex;gap:6px;margin-bottom:30px}
+  .steps button{flex:1;height:4px;border-radius:4px;background:var(--line2);position:relative;transition:background .3s}
+  .steps button::after{content:"";position:absolute;inset:-12px 0}
+  .steps button.done{background:rgba(214,182,120,.45)} .steps button.on{background:var(--brass)}
+  .jcard .n{font-size:13px;color:var(--mist)}
+  .jcard h3{font-weight:200;font-size:clamp(32px,3vw,48px);letter-spacing:-.02em;line-height:1.06;margin:12px 0 18px}
+  .jcard p{font-size:18px;color:var(--soft);font-weight:320;max-width:30em}
+  .jcard .tag{margin-top:20px}
+  .jnav{display:flex;gap:12px;margin-top:30px}
+  .jnav button{border:1px solid var(--line2);border-radius:999px;padding:12px 20px;font-size:14px}
+  .screen{border:1px solid var(--line2);border-radius:18px;overflow:hidden;background:#081022;box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
+  .screen .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .screen .bar i{width:9px;height:9px;border-radius:50%;background:rgba(206,214,228,.18)}
+  .screen .bar span{margin-left:10px;font-size:12px;color:var(--mist)}
+  .screen .view{max-height:520px;overflow:auto}
+  .screen img{display:block;width:100%;height:auto}
+  .screen-cap{margin-top:12px;font-size:12.5px;color:var(--mist)}
+  .shot-seg{margin-bottom:14px}
+  .shot-seg button{font-size:13px;padding:7px 13px}
+  .jart{width:100%;max-width:480px;aspect-ratio:1/1;display:block;margin:0 auto}
+  /* аккаунт */
+  .acc{margin-top:60px;display:grid;grid-template-columns:340px 1fr;border:1px solid var(--line);border-radius:26px;overflow:hidden;background:linear-gradient(180deg,#0a1328,#070d1c)}
+  .acc aside{padding:32px 28px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:18px}
+  .ava{width:100%;max-width:280px;aspect-ratio:1/1}
+  .acc .name{font-size:15px;color:var(--mist)}
+  .acc .nick{font-weight:240;font-size:30px;line-height:1.08;letter-spacing:-.015em}
+  .acc .stat{font-size:15px;color:var(--soft);border-left:2px solid var(--brass);padding-left:12px}
+  .acc .acts{display:flex;gap:10px;flex-wrap:wrap}
+  .acc .acts button{font-size:14px;padding:11px 16px;border-radius:999px;border:1px solid var(--line2)}
+  .acc .acts button.pri{background:var(--ink);color:var(--abyss);border-color:var(--ink)}
+  .acc main{padding:24px 32px 32px;min-width:0}
+  .atabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px;overflow-x:auto}
+  .atabs button{padding:12px 16px;font-size:15px;color:var(--mist);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+  .atabs button[aria-selected="true"]{color:var(--ink);border-color:var(--brass)}
+  .sk{display:grid;grid-template-columns:1fr 1fr;gap:10px 40px}
+  .sk .r{display:grid;grid-template-columns:1fr 100px 30px;gap:12px;align-items:center;font-size:14.5px}
+  .sk .r i{height:4px;border-radius:4px;background:rgba(206,214,228,.12);position:relative;overflow:hidden}
+  .sk .r i b{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#9c7838,var(--brass-hi));border-radius:4px}
+  .sk .r em{font-style:normal;font-size:14px;color:var(--brass-hi);text-align:right;font-variant-numeric:tabular-nums}
+  .sk .r.cl{color:var(--mist)} .sk .r.cl em{color:var(--mist)}
+  .prog{display:grid;gap:12px}
+  .prog div{display:grid;grid-template-columns:1fr auto;gap:6px 20px;padding:16px 18px;border:1px solid var(--line);border-radius:16px}
+  .prog h5{font-weight:400;font-size:16px} .prog p{grid-column:1;font-size:14px;color:var(--mist)} .prog b{grid-row:1/3;grid-column:2;align-self:center;font-weight:200;font-size:28px;color:var(--teal)}
+  .feed{display:grid;gap:14px}
+  .post{padding:18px 20px;border:1px solid var(--line);border-radius:18px;display:grid;grid-template-columns:44px 1fr;gap:14px}
+  .post .pa{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#2a56a8,#0b1d44);border:1px solid rgba(214,182,120,.5)}
+  .post h6{font-size:14.5px;font-weight:460} .post h6 span{color:var(--mist);font-weight:340}
+  .post p{font-size:15px;color:var(--soft);margin-top:4px}
+  .demo-note{font-size:12.5px;color:var(--mist);margin-top:18px}
+  .cmp{position:fixed;inset:0;z-index:50;background:rgba(4,7,15,.82);display:none;align-items:center;justify-content:center;padding:20px}
+  .cmp.open{display:flex}
+  .cmp .box{max-width:860px;width:100%;max-height:90vh;overflow:auto;background:#0a1328;border:1px solid var(--line2);border-radius:26px;padding:34px;display:grid;grid-template-columns:1fr 1fr;gap:30px;position:relative}
+  .cmp .box h3{grid-column:1/-1;font-weight:220;font-size:30px}
+  .cmp .box .x{position:absolute;top:20px;right:20px;border:1px solid var(--line2);border-radius:999px;padding:8px 14px;font-size:13px}
+  .cmp ul{list-style:none;display:grid;gap:10px;font-size:15px}
+  .cmp li{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .cmp li i{font-style:normal;font-size:13px}
+  /* этапы */
+  .track{margin-top:56px;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line2)}
+  .track button{text-align:left;padding:22px 24px 22px 0;position:relative;color:var(--mist);transition:color .3s}
+  .track button::before{content:"";position:absolute;top:-1px;left:0;right:24px;height:2px;background:transparent;transition:background .3s}
+  .track button[aria-selected="true"]{color:var(--ink)} .track button[aria-selected="true"]::before{background:var(--brass)}
+  .track small{display:block;font-size:13px;color:var(--mist);margin-bottom:8px}
+  .track b{font-weight:260;font-size:clamp(24px,2.2vw,32px);letter-spacing:-.015em}
+  .stage-view{margin-top:36px}
+  .stage-view > p{font-size:18px;color:var(--soft);max-width:44em}
+  .three{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;margin-top:34px}
+  .three div{border-top:1px solid var(--line);padding-top:18px}
+  .three h4{font-weight:280;font-size:24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .three p{margin-top:10px;font-size:15.5px;color:var(--soft)}
+  .cab{margin-top:40px;border:1px solid var(--line);border-radius:24px;overflow:hidden;display:grid;grid-template-columns:220px 1fr;background:linear-gradient(180deg,#0a1328,#070d1c)}
+  .cab nav{border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;gap:2px}
+  .cab nav button{text-align:left;padding:11px 14px;border-radius:12px;font-size:15px;color:var(--mist)}
+  .cab nav button[aria-selected="true"]{background:rgba(214,182,120,.08);color:var(--ink)}
+  .cab .cv{padding:28px 32px;min-height:380px;min-width:0}
+  .cab .cv h4{font-weight:240;font-size:28px;letter-spacing:-.015em}
+  .cab .cv p{margin-top:10px;font-size:16px;color:var(--soft);max-width:40em}
+  .cab .cv .mock{margin-top:24px;overflow-x:auto}
+  .cab .head{display:flex;justify-content:space-between;align-items:center;gap:20px}
+  .loops{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;margin-top:34px}
+  .loops div{border-top:1px solid var(--line);padding-top:18px}
+  .loops h4{font-weight:300;font-size:20px;margin-bottom:8px}
+  .loops p{font-size:15px;color:var(--soft)}
+  /* конкуренты */
+  .riv{margin-top:56px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
+  .riv svg{width:100%;display:block}
+  .riv svg text{font-family:var(--f)}
+  .rtab{display:grid;gap:0}
+  .rtab div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;padding:16px 0;border-top:1px solid var(--line)}
+  .rtab h4{font-weight:380;font-size:16px} .rtab h4 small{display:block;font-size:12.5px;color:var(--mist);font-weight:340;margin-top:3px}
+  .rtab p{font-size:14.5px;color:var(--soft)}
+  .rtab div.me{border-top:1px solid var(--brass)} .rtab div.me h4{color:var(--brass-hi)}
+  /* сейчас и команда */
+  .now{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:56px}
+  .now div{padding:26px;border:1px solid var(--line);border-radius:22px}
+  .now h4{margin-bottom:16px}
+  .now ul{list-style:none;display:grid;gap:10px;font-size:15px;color:var(--soft)}
+  .founder{display:grid;grid-template-columns:1fr 1fr;gap:64px;margin-top:56px;align-items:start}
+  .founder .fn{font-weight:200;font-size:clamp(44px,4vw,64px);letter-spacing:-.03em;line-height:1}
+  .founder .fnick{color:var(--brass-hi);font-size:18px;margin-top:12px}
+  .founder blockquote{margin-top:30px;font-size:22px;font-weight:240;line-height:1.4;border-left:2px solid var(--brass);padding-left:20px}
+  .founder blockquote small{display:block;font-size:13px;color:var(--mist);margin-top:10px}
+  .fs{display:grid;gap:20px}
+  .fs div{border-top:1px solid var(--line);padding-top:16px}
+  .fs h4{font-weight:340;font-size:19px} .fs p{font-size:14px;color:var(--mist);margin-top:6px} .fs p.fd{font-size:15.5px;color:var(--soft)}
+  .team{margin-top:88px}
+  .team h3{font-weight:220;font-size:clamp(28px,2.6vw,40px);letter-spacing:-.02em}
+  .team > p{margin-top:12px;font-size:17px;color:var(--soft);max-width:44em}
+  .roles{display:grid;grid-template-columns:repeat(4,1fr);gap:28px 32px;margin-top:34px}
+  .roles div{border-top:1px solid var(--line2);padding-top:16px}
+  .roles h4{font-weight:380;font-size:17px} .roles p{margin-top:6px;font-size:14.5px;color:var(--mist)}
+  /* финал */
+  .final{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:180px var(--pad) 160px;max-width:var(--max);margin:0 auto}
+  .final h2{max-width:13em;font-size:clamp(46px,6vw,100px);font-weight:150}
+  .final .btn{margin-top:44px}
+  footer{padding:30px var(--gut);border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:13px;color:var(--mist);gap:20px;flex-wrap:wrap}
+  @media (max-width:1240px){.chap{display:none}.menu-btn{display:inline-block}}
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;padding-top:90px;padding-bottom:40px}.stage{height:56vh;order:-1}.count{position:static;margin-top:36px;gap:28px;flex-wrap:wrap}.cap{position:static;margin-top:20px}
+    .hist,.why,.roles,.loops,.three,.now,.meth{grid-template-columns:1fr 1fr}
+    .cpanel,.scen,.moat,.journey,.founder,.mech,.riv,.money-line{grid-template-columns:1fr}
+    .money-line{gap:16px}
+    .layer-view{border-left:0;padding-left:0}.acc,.cab{grid-template-columns:1fr}.acc aside{border-right:0;border-bottom:1px solid var(--line)}
+    .cab nav{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.cab nav button{white-space:nowrap}
+    .proof{grid-template-columns:1fr}.proof div{border-right:0;border-bottom:1px solid var(--line)}.sk{grid-template-columns:1fr}.cmp .box{grid-template-columns:1fr}
+    .track{grid-template-columns:1fr}.track button{padding-right:0}.track button::before{right:0}
+    section.s{padding-top:100px}.tg{display:none}
+  }
+  @media (max-width:560px){.hist,.why,.roles,.loops,.three,.now,.meth{grid-template-columns:1fr}.count b{font-size:28px}.facts b{font-size:28px}.sview .row{grid-template-columns:1fr}.bars div{grid-template-columns:7.6em 1fr 4.8em}.rtab div{grid-template-columns:1fr;gap:6px}}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top" id="top">
+  <a class="mark" href="#nachalo">КАЛИБР</a>
+  <nav class="chap" aria-label="Разделы"></nav>
+  <button class="menu-btn" id="menuBtn" aria-expanded="false">Разделы</button>
+  <a class="tg" href="https://t.me/andrey_cruiser" target="_blank" rel="noopener">@andrey_cruiser</a>
+</header>
+<div class="sheet" id="sheet" role="dialog" aria-label="Разделы"><button class="x" id="sheetX">Закрыть</button></div>
+
+<main>
+<section class="hero" id="nachalo">
+  <div>
+    <p class="hello"><i></i>Знакомство с проектом. Продукт в разработке, на рынок пока не выходил</p>
+    <p class="kicker">Социальная сеть, где человека видно по его силе</p>
+    <h1>Какого ты<br>калибра?</h1>
+    <p class="lead"><b>Карта, которую человек собирает 20 лет. За 30 минут.</b> КАЛИБР показывает, что в человеке сильное, где он раскроется и где выгорит. А дальше растит эту силу: курсы, наставник, работа и люди в одной сети.</p>
+    <div class="cta"><a class="btn" href="#produkt">Настоящий кабинет</a><a class="btn ghost" href="#rynok">Рынок</a></div>
+  </div>
+  <div class="stage"><canvas id="dial" aria-label="Циферблат калибра основателя: восемь сторон силы и двадцать четыре силы"></canvas><div id="dial2d" hidden></div></div>
+  <p class="cap">Справа настоящий калибр основателя: <i>восемь сторон силы</i> лучами, <i>24 силы</i> по кругу, стрелки на двух сильнейших.</p>
+  <div class="count"><div><b>24</b><span>силы в одном языке</span></div><div><b>7</b><span>аналитических модулей</span></div><div><b>≈209</b><span>млрд ₽ в год: рынок России на входе</span></div></div>
+</section>
+
+<section class="s" id="istoriya"><div class="wrap">
+  <p class="eyebrow">Как родилась идея</p>
+  <h2>Год от проверки теории до платформы</h2>
+  <div class="hist">
+    <article><span class="n">Шаг 1</span><h3>Тест теории</h3><p>13 вопросов, и человек получает письмо о себе. Впервые кто-то говорит о тебе то, что ты чувствуешь, но не можешь выразить словами.</p>
+      <div class="big"><div><b>110</b><span>человек пришли сами, без рекламы</span></div><div><b>90%</b><span>сказали «это точно про меня»</span></div></div></article>
+    <article><span class="n">Шаг 2</span><h3>Движок для компаний</h3><p>Тот же движок за три дня переложили на команды и найм. Он попал в людей и заговорил на языке HR: поведение, роли в команде, мотивация, риск ухода.</p></article>
+    <article><span class="n">Шаг 3</span><h3>КАЛИБР</h3><p>Каждый вывод о человеке теперь проверяется его поступками в ситуациях из его рабочей жизни. Наружу выходит только подтверждённое.</p></article>
+    <article><span class="n">Шаг 4</span><h3>Сеть</h3><p>Профиль перестаёт быть разовым отчётом. Калибр живёт, растёт и находит людей: партнёров, команду, работу, инвесторов.</p></article>
+  </div>
+</div></section>
+
+<section class="s" id="rynok"><div class="wrap">
+  <p class="eyebrow">Рынок</p>
+  <h2>КАЛИБР стоит на входе в рынки, где уже есть деньги</h2>
+  <div class="money-line"><b>≈209 <small>млрд ₽ в год</small></b><p>Столько в год получают крупнейшие компании онлайн-обучения, подбора и оценки людей в России. Ни один из этих рынков не отвечает человеку, что в нём сильное и чему учиться именно ему. КАЛИБР отвечает и ведёт дальше: к обучению, работе и людям.</p></div>
+  <div class="circles">
+    <div class="seg" role="tablist" aria-label="Круги рынка" id="circTabs"></div>
+    <div class="cpanel" id="circView" role="tabpanel"></div>
+  </div>
+  <div class="scen">
+    <div><h3>Потенциал КАЛИБРа за три года</h3><p class="intro" style="font-size:16px">Пять сценариев. Нажми, и цифры пересчитаются. База: люди, которые думают о смене работы, 42,1 млн в России и 18,8 млн в странах рядом.</p>
+      <div class="seg" role="tablist" aria-label="Сценарии" id="scenTabs"></div></div>
+    <div class="sview" id="scenView" aria-live="polite"></div>
+  </div>
+  <p class="fine">Гипотеза, а не прогноз выручки. Через КАЛИБР проходит такая же доля рынка, как доля людей. Аудитория: доля из опроса Профи.ру (55% думают о смене работы), перенесённая на рабочую силу. Деньги рынка: выручка крупнейших компаний, настоящий рынок больше.</p>
+  <div class="why">
+    <div><b>×10</b><p>Во столько раз в год дешевеет работа нейросети того же уровня. Глубокий личный разбор впервые можно дать каждому, а не только руководителю за счёт компании.</p><p class="src"><a href="https://www.a16z.com/llmflation-llm-inference-cost" target="_blank" rel="noopener">a16z, ноябрь 2024</a></p></div>
+    <div><b>18,5 млн</b><p>экономически активных россиян регулярно пользуются нейросетями, это около 24%. Разговор с машиной о себе стал привычным.</p><p class="src"><a href="https://www.sostav.ru/publication/chetvert-ekonomicheski-aktivnykh-rossiyan-polzuyutsya-ii-82156.html" target="_blank" rel="noopener">МТС AdTech, март 2026</a></p></div>
+    <div><b>+12%</b><p>Рост 100 крупнейших EdTech-компаний в 2025 году, и он продолжает замедляться. Наше прочтение: людям продают курсы, не зная, чему учиться именно им.</p><p class="src"><a href="https://www.sostav.ru/publication/tempy-rosta-vyruchki-krupnejshikh-rossijskikh-edtech-kompanij-prodolzhayut-zamedlyatsya-81431.html" target="_blank" rel="noopener">Smart Ranking, февраль 2026</a></p></div>
+  </div>
+</div></section>
+
+<section class="s" id="mekhanizm"><div class="wrap">
+  <p class="eyebrow">Механизм</p>
+  <h2>Калибр не спрашивают. Его измеряют поступками</h2>
+  <p class="intro">Движок не верит ответу «какой я». Он выдвигает гипотезы о человеке и проверяет их тем, как человек поступает в ситуациях из своей рабочей жизни. Вот настоящий пример с профиля основателя.</p>
+  <div class="proof">
+    <div><span class="k">Гипотеза</span><p><s>Зарабатывает ставкой до ясной картины</s></p></div>
+    <div><span class="k">Проверка</span><p>Две ситуации из его рабочей жизни, в каждой четыре поступка с разными причинами</p></div>
+    <div><span class="k">Итог: опровергнута</span><p>Сначала узнаёт, кто заплатит, и строит под них. В выдаче стоит это, а не гипотеза</p></div>
+  </div>
+  <div class="mech">
+    <div class="layers" role="tablist" aria-label="Слои механизма"></div>
+    <div class="layer-view" role="tabpanel"></div>
+  </div>
+  <p class="codeline"><b>10 600+ строк собственного кода.</b> Всё, что считается, считает код: силы, сферы, форматы, статусы выводов и проверку каждого текста. Нейросеть пишет человеческим языком, а код не пропускает её ошибки.</p>
+</div></section>
+
+<section class="s" id="metodiki"><div class="wrap">
+  <p class="eyebrow">Научная база</p>
+  <h2>На чём стоит измерение</h2>
+  <p class="intro">КАЛИБР собирает в одном движке подходы, которыми крупные компании оценивают людей, и добавляет то, чего нет ни у кого: проверку каждого вывода поступками.</p>
+  <div class="seg filters" role="group" aria-label="Фильтр методик">
+    <button aria-pressed="true" data-f="all">Все</button><button aria-pressed="false" data-f="ok">Работает в движке</button><button aria-pressed="false" data-f="demo">В инфраструктуре для компаний</button><button aria-pressed="false" data-f="soon">Подключаем</button>
+  </div>
+  <div class="meth"></div>
+  <p class="fine">Названия методик принадлежат их авторам. КАЛИБР опирается на их принципы и сопоставим с ними, а не продаёт их тесты.</p>
+  <div class="moat">
+    <div><h3>Почему это точно</h3><ol>
+      <li>Поступок важнее самоописания: человек выбирает, что сделает, а не какой он.</li>
+      <li>У каждого вывода записано, что его опровергнет.</li>
+      <li>В выдачу идёт только проверенное, под каждым абзацем опора.</li>
+      <li>Противоречия разбираются, а не прячутся.</li>
+      <li>Текст не возвращает человеку его же слова: он говорит то, чего человек о себе не знал.</li>
+      <li>Два контура контроля: код и независимый проверяющий.</li></ol></div>
+    <div><h3>Почему не повторить</h3><div class="wall">
+      <div><b>год</b><span>пути от проверки теории до движка, который работает на живых людях</span></div>
+      <div><b>10 600+</b><span>строк собственного кода и восемь контуров автоматической проверки качества</span></div>
+      <div><b>банк</b><span>вердиктов «попало / мимо» по каждому абзацу: каждый новый человек делает движок точнее</span></div>
+      <div><b>язык</b><span>24 силы, на котором уже описаны сферы, профессии и роли: его нельзя скопировать за месяц</span></div></div></div>
+  </div>
+</div></section>
+
+<section class="s" id="produkt"><div class="wrap">
+  <p class="eyebrow">Продукт</p>
+  <h2>Путь человека и настоящий кабинет</h2>
+  <p class="intro">Первые четыре шага уже работают. Экраны справа настоящие: это кабинет основателя, он прошёл КАЛИБР сам.</p>
+  <div class="journey">
+    <div><div class="steps" role="tablist" aria-label="Шаги пути"></div><div class="jcard"></div><div class="jnav"><button id="jPrev">Назад</button><button id="jNext">Дальше</button></div></div>
+    <div id="jright"></div>
+  </div>
+</div></section>
+
+<section class="s" id="akkaunt"><div class="wrap">
+  <p class="eyebrow">Аккаунт в сети</p>
+  <h2>Так человек будет выглядеть в сети КАЛИБРА</h2>
+  <p class="intro">Силы и прозвище настоящие, это профиль основателя. Лента, программы и сравнение показаны на примере, с пометкой «демо».</p>
+  <div class="acc">
+    <aside>
+      <svg class="ava" id="ava" viewBox="0 0 200 200" aria-label="Знак калибра: форма восьми сторон силы"></svg>
+      <div><p class="name">Андрей</p><p class="nick" id="accNick"></p></div>
+      <p class="stat">Строю КАЛИБР: сеть, где человека видно по его силе</p>
+      <div class="acts"><button class="pri" id="cmpBtn">Сравниться со мной</button><button id="findBtn">Найти людей по силам</button></div>
+    </aside>
+    <main>
+      <div class="atabs" role="tablist"><button role="tab" aria-selected="true" data-a="sily">Силы</button><button role="tab" aria-selected="false" data-a="rost">Рост</button><button role="tab" aria-selected="false" data-a="lenta">Лента</button><button role="tab" aria-selected="false" data-a="lyudi">Люди</button></div>
+      <div class="apanel" id="a-sily"><div class="sk" id="skills"></div><p class="demo-note">Серым: где данных пока мало. Это не слабость и не сила, а то, что проверят следующие ответы.</p></div>
+      <div class="apanel" id="a-rost" hidden><div class="prog">
+        <div><h5>Переговоры о цене: практикум</h5><p>Поднимает «Знать себе цену». После курса проверочный тест подтверждает рост целиком или частично</p><b>+6</b></div>
+        <div><h5>Передача задач команде</h5><p>Поднимает «Отдавать работу другим». Сертификат КАЛИБРа о подтверждённой силе</p><b>+5</b></div>
+        <div><h5>Публичные выступления</h5><p>Курс партнёра с его сертификатом. Поднимает «Быть на виду»</p><b>+8</b></div>
+        <div><h5>Наставник на 30 дней</h5><p>Ведёт по решениям из разбора: шаг на неделю, напоминание, нужный человек из сети</p><b>ИИ</b></div>
+      </div><p class="demo-note">Демо: программы и коэффициенты показаны на примере.</p></div>
+      <div class="apanel" id="a-lenta" hidden><div class="feed">
+        <div class="post"><i class="pa"></i><div><h6>Андрей <span>подтвердил силу</span></h6><p>«Отдавать работу другим»: 79 → 84 после программы и проверочного теста.</p></div></div>
+        <div class="post"><i class="pa"></i><div><h6>Андрей <span>ищет</span></h6><p>Технического партнёра с сильной «Точностью до мелочи» и «Цифрами, фактами, деталями».</p></div></div>
+        <div class="post"><i class="pa"></i><div><h6>Андрей <span>сравнился</span></h6><p>Синергия в пяти сторонах силы из восьми, дополнение в двух, разрыв в одной: «Тепло и чутьё».</p></div></div>
+      </div><p class="demo-note">Демо: лента показана на примере.</p></div>
+      <div class="apanel" id="a-lyudi" hidden><div class="feed" id="people"></div><p class="demo-note">Демо: профили на примере. Подбор идёт по тем же 24 силам: кто дополняет, кто усиливает.</p></div>
+    </main>
+  </div>
+</div></section>
+
+<section class="s" id="etapy"><div class="wrap">
+  <p class="eyebrow">Этапы</p>
+  <h2>Один язык описания человека. Три этапа роста</h2>
+  <p class="intro">Сначала человек, потом компании на том же языке, потом сеть, когда людей достаточно. План на три года.</p>
+  <div class="track" role="tablist" aria-label="Этапы" id="track"></div>
+  <div class="stage-view" id="stageView" role="tabpanel"></div>
+</div></section>
+
+<section class="s" id="konkurenty"><div class="wrap">
+  <p class="eyebrow">Конкуренты</p>
+  <h2>Кто ещё работает с этой потребностью и чем КАЛИБР другой</h2>
+  <div class="riv">
+    <svg id="rivMap" viewBox="0 0 560 480" role="img" aria-label="Карта: на чём строится вывод и что получает человек дальше"></svg>
+    <div class="rtab" id="rivTab"></div>
+  </div>
+  <p class="fine">Положение на карте: наша оценка по открытым описаниям продуктов. Прохождения тестов: данные самих компаний.</p>
+</div></section>
+
+<section class="s" id="seichas"><div class="wrap">
+  <p class="eyebrow">Где мы сейчас</p>
+  <h2>Знакомство с проектом: что уже работает и что дальше</h2>
+  <p class="intro">Продукт в разработке и на рынок пока не выходил. Ниже честно: что сделано, что показано на примере, что впереди.</p>
+  <div class="now">
+    <div><h4><span class="tag ok">Работает</span></h4><ul><li>Первая часть: 10 минут, 24 силы, прозвище, карта сфер</li><li>Семь аналитических модулей и вторая часть с ситуациями</li><li>Выдача только из проверенного, с контролем кода</li><li>Кабинет с циферблатом калибра</li><li>Восемь контуров автоматической проверки</li></ul></div>
+    <div><h4><span class="tag demo">Демо и прототип</span></h4><ul><li>Аккаунт в сети</li><li>Инфраструктура для компаний: кабинет руководителя, риск-матрица, совместимость</li></ul></div>
+    <div><h4><span class="tag soon">Дальше</span></h4><ul><li>Первые люди и их вердикты по каждому абзацу</li><li>Рост: курсы, проверочные тесты, сертификаты</li><li>Наставник, вакансии, сеть, сравнение двоих</li><li>Адаптивная анкета и научная проверка</li></ul></div>
+  </div>
+</div></section>
+
+<section class="s" id="komanda"><div class="wrap">
+  <p class="eyebrow">Команда</p>
+  <h2>Основатель прошёл КАЛИБР сам</h2>
+  <div class="founder">
+    <div><p class="fn">Андрей</p><p class="fnick" id="fNick"></p><blockquote id="fShare"></blockquote></div>
+    <div class="fs" id="fStr"></div>
+  </div>
+  <div class="team">
+    <h3>Команда собрана и подключается на запуске</h3>
+    <p>Позиции, которые закрываются с привлечением инвестиций:</p>
+    <div class="roles" id="roles"></div>
+  </div>
+</div></section>
+
+<section class="final" id="final">
+  <h2>Найди дело по своему калибру</h2>
+  <p class="intro">Один язык описания человека: для него самого, для компаний и для сети.</p>
+  <a class="btn" href="https://t.me/andrey_cruiser" target="_blank" rel="noopener">Написать основателю: @andrey_cruiser</a>
+</section>
+</main>
+<footer><span>КАЛИБР · 2026 · знакомство с проектом</span><span>Профиль основателя настоящий. Пометка «демо» стоит там, где показан пример.</span></footer>
+
+<div class="cmp" id="cmp" role="dialog" aria-label="Сравнение двух калибров"><div class="box"><button class="x" id="cmpX">Закрыть</button><h3>Андрей и партнёр <span class="tag demo">демо</span></h3><ul id="cmpA"></ul><ul id="cmpB"></ul></div></div>
+
+%%IMPORTMAP%%
+<script>%%DIAL2D%%</script>
+<script>window.__KD = %%DATA%%;</script>
+<script type="module">
+%%DIAL%%
+const D = window.__KD, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = t => String(t ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+const A = (u, t) => `<a href="${u}" target="_blank" rel="noopener">${t}</a>`;
+const tabs = (box, items, cur, attr = 'data-i') => { box.innerHTML = items.map((t, i) => `<button role="tab" aria-selected="${i === cur}" ${attr}="${i}">${t}</button>`).join(''); };
+const pick = (box, i) => box.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(+b.dataset.i === i)));
+
+// навигация
+const CH = [['istoriya', 'История'], ['rynok', 'Рынок'], ['mekhanizm', 'Механизм'], ['metodiki', 'Методики'], ['produkt', 'Продукт'], ['akkaunt', 'Аккаунт'], ['etapy', 'Этапы'], ['konkurenty', 'Конкуренты'], ['seichas', 'Сейчас'], ['komanda', 'Команда']];
+$('.chap').innerHTML = CH.map(([id, t]) => `<a href="#${id}" data-id="${id}">${t}</a>`).join('');
+$('#sheet').insertAdjacentHTML('beforeend', CH.map(([id, t], i) => `<a href="#${id}"><span>${i + 1}</span>${t}</a>`).join(''));
+const sheet = $('#sheet'), mb = $('#menuBtn');
+mb.onclick = () => { sheet.classList.add('open'); mb.setAttribute('aria-expanded', 'true'); };
+const closeSheet = () => { sheet.classList.remove('open'); mb.setAttribute('aria-expanded', 'false'); };
+$('#sheetX').onclick = closeSheet; sheet.addEventListener('click', e => { if (e.target.closest('a')) closeSheet(); });
+const secs = CH.map(([id]) => document.getElementById(id));
+const spy = () => { $('#top').classList.toggle('solid', scrollY > 40); const y = innerHeight * 0.4; let cur = ''; secs.forEach(s => { const r = s.getBoundingClientRect(); if (r.top <= y && r.bottom > y) cur = s.id; }); $$('.chap a').forEach(a => a.classList.toggle('on', a.dataset.id === cur)); };
+addEventListener('scroll', spy, { passive: true }); spy();
+
+// рынок: три круга
+const CIRC = [
+  ['Россия', [
+    ['76,6 млн', 'в рабочей силе', A('https://1prime.ru/20250827/bezrabotitsa-861347072.html', 'Росстат, июль 2025')],
+    ['42,1 млн', 'думают о смене работы (55%). Ещё 11,5 млн (15%) готовы сменить профессиональную область целиком', A('https://snob.ru/news/rossiiane-vse-chashche-zadumyvaiutsia-o-smene-professii-v-2025-godu/', 'опрос Профи.ру, 5000 человек') + ', перенесён на рабочую силу'],
+    ['34,5 млн', 'готовы вложить до 30 тыс. ₽ в обучение ради новой профессии (45%)', 'там же'],
+    ['4,3 млн', 'студентов вузов', A('https://businesstat.ru/news/higher_education/', 'BusinesStat, 2025')],
+    ['8,5+ млн', 'школьников стали участниками госпрофориентации за учебный год', A('https://news.mail.ru/society/71490848/', '«Билет в будущее», 2025/26')]],
+   [['154 млрд ₽', 'онлайн-образование: выручка 100 крупнейших EdTech-компаний', A('https://www.sostav.ru/publication/tempy-rosta-vyruchki-krupnejshikh-rossijskikh-edtech-kompanij-prodolzhayut-zamedlyatsya-81431.html', 'Smart Ranking, 2025')],
+    ['51 млрд ₽', 'подбор людей: выручка крупнейших компаний, из них hh.ru 37,1 млрд', A('https://kommersant.ru/doc/7606987', 'Smart Ranking, 2024')],
+    ['3,85 млрд ₽', 'оценка и развитие людей, рост почти на 38% за год', 'там же'],
+    ['0,19', 'валидность интервью при отборе, у центров оценки 0,65. Наш вывод: обычный найм почти вслепую', A('https://hh.ru/article/32366', 'таблица по Баллантайну и Пове, hh.ru')]]],
+  ['Страны рядом', [
+    ['15,6 млн', 'Узбекистан, экономически активные', A('https://anhor.uz/ru/news/uzbekistan-516', 'Минзанятости Узбекистана, III кв. 2025')],
+    ['9,5 млн', 'Казахстан, рабочая сила', A('https://eec.eaeunion.org/upload/files/dep_stat/econstat/statpub/labourmarket_2023.pdf', 'ЕЭК, 2023')],
+    ['5,0 млн', 'Беларусь, рабочая сила', 'там же'],
+    ['2,8 млн', 'Кыргызстан, рабочая сила', 'там же'],
+    ['1,4 млн', 'Армения, рабочая сила', 'там же']],
+   [['34,2 млн', 'вместе в рабочей силе. Верхняя граница: по-русски говорят не все', 'сумма по неокруглённым данным слева; годы разные: Узбекистан 2025, остальные 2023'],
+    ['18,8 млн', 'думают о смене работы, если доля такая же, как в России', 'наша оценка'],
+    ['следующий шаг', 'траты на обучение и подбор по этим странам в открытых источниках не нашли, считаем отдельно', '']]],
+  ['Мир', [
+    ['1,58 млрд', 'прохождений теста 16Personalities, больше 55 тысяч за день по их счётчику', A('https://www.16personalities.com/', 'данные 16Personalities')],
+    ['30 млн', 'прохождений CliftonStrengths', A('https://www.gallup.com/cliftonstrengths/en/474911/cliftonstrengths-from-1-to-30-million.aspx', 'Gallup, 2023')]],
+   [['9,9 млрд $', 'оценка людей для компаний в 2025, к 2032 прогноз 18,1 млрд $', A('https://www.giiresearch.com/report/ires2082053-talent-assessment-services-market-by-assessment.html', '360iResearch')],
+    ['404 млрд $', 'мировые расходы на EdTech и цифровое образование, прогноз 2020 года на 2025', A('https://holoniq.com/notes/global-education-technology-market-to-reach-404b-by-2025', 'HolonIQ')]]]];
+const ct = $('#circTabs'), cv = $('#circView');
+const factList = rows => `<div class="facts">${rows.map(([b, s, src]) => `<div><b>${b}</b><span>${s}${src ? `<small>${src}</small>` : ''}</span></div>`).join('')}</div>`;
+const showCirc = i => { pick(ct, i); const [, ppl, mon] = CIRC[i]; cv.innerHTML = `<div><h4>Люди</h4>${factList(ppl)}</div><div><h4>${i === 1 ? 'Вместе' : 'Деньги и боль'}</h4>${factList(mon)}</div>`; };
+tabs(ct, CIRC.map(c => c[0]), 0); ct.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showCirc(+b.dataset.i); }); showCirc(0);
+
+// пять сценариев
+const RU = 42.1, CIS = 18.8, M = 208.8;
+const SC = [
+  ['Тихий старт', .01, 0, 0, 'Россия, рост только от пересылок прозвища, 1% аудитории.'],
+  ['Вирусная петля', .05, 0, 0, 'Работают прозвище и «сравнись со мной»: каждый приводит следующего. 5% аудитории России.'],
+  ['Россия и страны рядом', .05, .05, 0, 'То же плюс Казахстан, Узбекистан, Беларусь, Кыргызстан и Армения, по 5%.'],
+  ['Сеть включилась', .10, .10, 0, 'Люди приходят друг за другом, за командой и за работой. 10% аудитории России и стран рядом.'],
+  ['Выход в мир', .10, .10, 1.0, 'Плюс английская версия: 1 млн человек за год. Для масштаба: 16Personalities проходят больше 55 тысяч раз за день. И 1% мирового рынка оценки людей.']];
+const ppl = s => RU * s[1] + CIS * s[2] + s[3];
+const fmt = (x, d = 1) => x.toFixed(d).replace('.', ',');
+const st = $('#scenTabs'), sv = $('#scenView'); const maxP = Math.max(...SC.map(ppl));
+const showScen = i => { pick(st, i); const s = SC[i], p = ppl(s), m = M * s[1];
+  sv.innerHTML = `<div class="row"><div><b>${fmt(p, p < 1 ? 2 : 1)} млн</b><span>человек пройдут КАЛИБР за три года</span></div><div><b>${fmt(m)} млрд ₽</b><span>рынка России в год проходят через КАЛИБР${s[3] ? ', плюс ≈ 99 млн $ в мире' : ''}</span></div></div>
+  <p>${s[4]}</p><div class="bars">${SC.map((x, k) => `<div class="${k === i ? 'on' : ''}"><span>${x[0]}</span><i><b style="width:${(ppl(x) / maxP * 100).toFixed(1)}%"></b></i><em>${fmt(ppl(x), ppl(x) < 1 ? 2 : 1)} млн</em></div>`).join('')}</div>`; };
+tabs(st, SC.map(s => s[0]), 1); st.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showScen(+b.dataset.i); }); showScen(1);
+
+// механизм: шесть слоёв
+const LAY = [
+  ['Первая часть', '10 минут, и у человека уже есть стартовый калибр', 'Поведенческие сцены с выбором «больше всего про меня» и «меньше всего про меня», роли в команде, драйверы мотивации, прожитый опыт. Код считает стартовые силы и портрет: кто перед нами и из чего строить следующие вопросы.', [['10', 'минут'], ['4', 'формата вопросов']]],
+  ['24 силы', 'Один язык описания человека', 'Двадцать четыре силы по шкале до 100. Из них код сводит 16 сфер, 5 форматов работы и матрицу «могу и хочу»: где раскроешься, что тянет, где справишься, но выгоришь.', [['24', 'силы'], ['16', 'сфер'], ['5', 'форматов']]],
+  ['Семь линз', 'Семь независимых аналитических модулей', 'Кто ты в деле, что тебя зажигает, карьерный путь, люди рядом, деньги, твой этап, редкая связка сил. Каждый модуль выдвигает 5–6 гипотез, и у каждой записано, что её опровергнет.', [['7', 'модулей'], ['35–42', 'гипотезы']]],
+  ['Вторая часть', 'Около 20 ситуаций из его рабочей жизни', 'Ситуации собраны под человека его типа: у предпринимателя про клиента и команду, у студента про учёбу. В каждой четыре поступка с четырьмя разными причинами. Человек выбирает, что про него, что нет, или пишет своё.', [['~20', 'ситуаций'], ['4', 'причины в каждой']]],
+  ['Пересчёт', 'Каждая гипотеза получает статус', 'Подтверждена, опровергнута, по-разному, своё объяснение. Противоречия разбираются, а не прячутся. Силы сдвигаются по поступкам, а не по самооценке.', [['5', 'статусов вывода']]],
+  ['Выдача и контроль', 'Наружу выходит только проверенное', 'Под каждым абзацем опора на поступки. Код не пропускает брак: пересказ ответов, эхо слов человека, непроверенное утверждение. Каждый текст читает независимый проверяющий.', [['2', 'контура контроля'], ['0', 'абзацев без опоры']]]];
+function layerViz(i) {
+  const W = 560, H = 150;
+  if (i === 1) { const v = D.bars.filter(b => b.open).slice(0, 12); return `<svg viewBox="0 0 ${W} ${H}" width="100%" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1dcaa"/><stop offset="1" stop-color="#9c7838" stop-opacity=".25"/></linearGradient></defs>${v.map((b, j) => `<rect x="${j * 46}" y="${H - b.value * 1.3}" width="30" height="${b.value * 1.3}" rx="4" fill="url(#lg)"/>`).join('')}</svg>`; }
+  if (i === 2) return `<svg viewBox="0 0 ${W} ${H}" width="100%" aria-hidden="true">${Array.from({ length: 7 }, (_, j) => `<circle cx="${40 + j * 80}" cy="75" r="30" fill="none" stroke="${j === 4 ? '#f1dcaa' : 'rgba(206,214,228,.3)'}" stroke-width="1.4"/><circle cx="${40 + j * 80}" cy="75" r="4" fill="#d6b678"/>`).join('')}</svg>`;
+  if (i === 4) return `<svg viewBox="0 0 ${W} ${H}" width="100%" aria-hidden="true">${[['подтверждена', '#6fc8b8'], ['опровергнута', '#e08a72'], ['по-разному', '#f1dcaa'], ['своё', '#c4cad6'], ['неясно', '#8e97a8']].map(([t, c], j) => `<g transform="translate(${j * 112},40)"><rect width="100" height="56" rx="12" fill="none" stroke="${c}" stroke-opacity=".6"/><text x="50" y="34" text-anchor="middle" fill="${c}" font-size="13">${t}</text></g>`).join('')}</svg>`;
+  return '';
+}
+const lay = $('.layers'), lv = $('.layer-view');
+lay.innerHTML = LAY.map(([t], i) => `<button role="tab" aria-selected="${i === 0}" data-i="${i}"><span class="n">${i + 1}</span><b>${t}</b></button>`).join('');
+const showLayer = i => { pick(lay, i); const [, h, p, f] = LAY[i]; lv.innerHTML = `<h3>${h}</h3><p>${p}</p><div class="lfacts">${f.map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('')}</div><div class="viz">${layerViz(i)}</div>`; };
+lay.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showLayer(+b.dataset.i); }); showLayer(0);
+
+// методики
+const ME = [
+  ['ok', 'Выбор «больше / меньше всего про меня»', 'Формат вынужденного выбора, как в DISC. Защищает от желания выглядеть лучше.'],
+  ['ok', 'Ситуационные сцены', 'Принцип корпоративных ситуационных тестов: поступок в ситуации, а не самооценка.'],
+  ['ok', 'Командные роли', 'Модель командных ролей (по Белбину): какую роль человек берёт сам.'],
+  ['ok', 'Драйверы мотивации', '16 драйверов в четырёх группах и причины, по которым человек уходит.'],
+  ['ok', 'Прожитый опыт', 'Чек-лист того, что человек реально делал. Отделяет способность от мечты.'],
+  ['ok', 'Три слоя личности', 'Сила в лучшей форме, сторона под давлением и мотивы, по принципу трёх слоёв Hogan.'],
+  ['ok', 'Опровержимость', 'У каждой гипотезы записано, что её опровергнет. Без этого вывод не выходит наружу.'],
+  ['ok', 'Ось времени', '«Раньше так, сейчас иначе»: траектория человека, а не приговор.'],
+  ['demo', 'Профиль на языке HR', 'Поведенческий профиль, Большая пятёрка, командные роли, сильные стороны.'],
+  ['demo', 'Риск-матрица «могу и хочу»', 'Звёзды, потенциал, риск ухода, балласт. Сигнал, когда человек сдвигается в красную зону.'],
+  ['demo', 'Светофор компетенций', 'Профессиональные навыки команды и дыры, которые закрывает только найм.'],
+  ['demo', 'Совместимость', 'Двое или пятеро: роли, будущие конфликты, как говорить друг с другом.'],
+  ['soon', 'Сверка с Большой пятёркой', 'Соответствие 24 сил научному стандарту личности.'],
+  ['soon', 'Интересы по модели Холланда', 'Шесть типов профессиональных интересов поверх 24 сил.'],
+  ['soon', 'Требования профессий O*NET', 'Открытая база требований профессий для точного подбора.'],
+  ['soon', 'Оценка 360', 'Руководитель и коллеги подтверждают силы человека.'],
+  ['soon', 'Адаптивная анкета', 'Каждый следующий вопрос там, где неуверенность выше.'],
+  ['soon', 'Защита от подделки ответов', 'Режим для найма, где кандидату выгодно казаться лучше.'],
+  ['soon', 'Научная проверка', 'Повтор через время и связь калибра с исходами через 6–12 месяцев.']];
+const TG = { ok: ['ok', 'работает в движке'], demo: ['demo', 'в инфраструктуре для компаний'], soon: ['soon', 'подключаем'] };
+$('.meth').innerHTML = ME.map(([k, h, p]) => `<div class="m" data-k="${k}"><span class="tag ${TG[k][0]}">${TG[k][1]}</span><h4>${h}</h4><p>${p}</p></div>`).join('');
+$('.filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('.filters button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $$('.meth .m').forEach(m => m.classList.toggle('off', b.dataset.f !== 'all' && m.dataset.k !== b.dataset.f)); });
+
+// путь человека с настоящими экранами
+const IMG = { top: ['img/k-top.jpg', 'Кабинет: калибр на циферблате'], map: ['img/k-map.jpg', 'Карта сфер: раскроешься, тянет, справишься, но выгоришь'], raskr: ['img/k-raskr.jpg', 'Где раскроешься и где нет'], dec: ['img/k-dec.jpg', 'Решения: первый шаг на этой неделе'], share: ['img/k-share.jpg', 'Фраза, которую перешлёшь'] };
+const JR = [
+  ['Прозвище', 'Друг выложил прозвище своего калибра, например «Непотопляемый первопроходец». Человек идёт узнать своё: «а я кто?»', 'ok', ['share']],
+  ['Первая часть', '10 минут, и на глазах появляются прозвище, 24 силы и карта сфер. Бесплатно.', 'ok', ['map']],
+  ['Разбор', 'Около 20 ситуаций из его жизни. Дальше: что в нём сильное, где раскроется, где выгорит, решения на ближайшие месяцы.', 'ok', ['raskr', 'dec']],
+  ['Кабинет', 'Калибр на циферблате, силы в процентах, статус «чем занят, что развиваю».', 'ok', ['top']],
+  ['Рост', 'Под каждую силу и сферу программы и курсы с коэффициентом прироста. Проверочный тест подтверждает рост, на выходе сертификат.', 'soon'],
+  ['Наставник', 'ИИ-наставник ведёт по решениям: шаг на неделю, напоминание, нужный человек из сети.', 'soon'],
+  ['Работа', 'Вакансии по совпадению требований с его силами. Резюме собирается из калибра, отклик с проверенным профилем.', 'soon'],
+  ['Сеть', 'Партнёры, сотрудники, работодатели и инвесторы находят его по силам. Сравнение двоих показывает, где они усиливают друг друга.', 'soon'],
+  ['Новый замер', 'Через полгода или год он проходит снова и видит, куда сдвинулся.', 'soon']];
+let ji = 0; const steps = $('.steps'), jc = $('.jcard'), jr = $('#jright');
+steps.innerHTML = JR.map((_, i) => `<button role="tab" aria-label="Шаг ${i + 1}" data-i="${i}"></button>`).join('');
+function jArt(i) { const C = 260, R = 200, pts = JR.map((_, k) => { const a = -Math.PI / 2 + k * 2 * Math.PI / JR.length; return [C + Math.cos(a) * R, C + Math.sin(a) * R]; }), L = 2 * Math.PI * R;
+  return `<svg class="jart" viewBox="0 0 520 520" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="rgba(206,214,228,.14)" stroke-width="1.2"/>
+  <circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#d6b678" stroke-width="2" stroke-dasharray="${L}" stroke-dashoffset="${L * (1 - (i + 1) / JR.length)}" transform="rotate(-90 ${C} ${C})"/>
+  ${pts.map(([x, y], k) => `<circle cx="${x}" cy="${y}" r="${k === i ? 11 : 6}" fill="${k <= i ? '#f1dcaa' : '#1a2440'}" stroke="${k <= i ? '#d6b678' : 'rgba(206,214,228,.3)'}"/>`).join('')}
+  <text x="${C}" y="${C - 10}" text-anchor="middle" fill="#eceef2" font-size="64" font-weight="160">${i + 1}</text><text x="${C}" y="${C + 28}" text-anchor="middle" fill="#8e97a8" font-size="15">скоро</text></svg>`; }
+function shot(keys, k = 0) { const [src, cap] = IMG[keys[k]];
+  return `${keys.length > 1 ? `<div class="seg shot-seg" role="tablist">${keys.map((x, n) => `<button role="tab" aria-selected="${n === k}" data-k="${n}">${IMG[x][1].split(':')[0]}</button>`).join('')}</div>` : ''}
+  <div class="screen"><div class="bar"><i></i><i></i><i></i><span>Кабинет КАЛИБРА · настоящий профиль основателя</span></div><div class="view"><img src="${src}" alt="${esc(cap)}" loading="lazy"></div></div><p class="screen-cap">${esc(cap)}</p>`; }
+const showJ = i => { ji = (i + JR.length) % JR.length; steps.querySelectorAll('button').forEach((b, k) => { b.classList.toggle('on', k === ji); b.classList.toggle('done', k < ji); b.setAttribute('aria-selected', String(k === ji)); });
+  const [h, p, stt, keys] = JR[ji]; jc.innerHTML = `<span class="n">Шаг ${ji + 1} из ${JR.length}</span><h3>${h}</h3><p>${p}</p><span class="tag ${stt}">${stt === 'ok' ? 'работает' : 'скоро'}</span>`;
+  jr.innerHTML = keys ? shot(keys) : jArt(ji); jr.dataset.keys = keys ? keys.join(',') : ''; };
+jr.addEventListener('click', e => { const b = e.target.closest('.shot-seg button'); if (b) jr.innerHTML = shot(jr.dataset.keys.split(','), +b.dataset.k); });
+steps.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showJ(+b.dataset.i); }); $('#jPrev').onclick = () => showJ(ji - 1); $('#jNext').onclick = () => showJ(ji + 1); showJ(0);
+
+// аккаунт
+function sigil(axes, C = 100) { const n = axes.length, pt = (i, r) => { const a = -Math.PI / 2 + 2 * Math.PI * i / n + Math.PI / n; return [C + Math.cos(a) * r, C + Math.sin(a) * r]; };
+  const rr = v => 18 + Math.max(0, (v - 40) / 60) * 64, poly = axes.map((a, i) => pt(i, rr(a.value)).map(x => x.toFixed(1)).join(',')).join(' ');
+  return `<defs><radialGradient id="sg" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#1d4796"/><stop offset=".6" stop-color="#0f2c66"/><stop offset="1" stop-color="#06132e"/></radialGradient><linearGradient id="sb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dfe5ee"/><stop offset=".5" stop-color="#7d8799"/><stop offset="1" stop-color="#c9d1dd"/></linearGradient></defs>
+  <circle cx="${C}" cy="${C}" r="98" fill="url(#sb)"/><circle cx="${C}" cy="${C}" r="90" fill="url(#sg)"/>
+  ${Array.from({ length: 60 }, (_, i) => { const a = 2 * Math.PI * i / 60, b = i % 5 === 0; return `<line x1="${C + Math.cos(a) * 86}" y1="${C + Math.sin(a) * 86}" x2="${C + Math.cos(a) * (b ? 79 : 83)}" y2="${C + Math.sin(a) * (b ? 79 : 83)}" stroke="#c9d3e6" stroke-opacity="${b ? .7 : .3}" stroke-width="${b ? 1.4 : .8}"/>`; }).join('')}
+  <polygon points="${poly}" fill="rgba(231,201,133,.12)" stroke="#e7c985" stroke-width="1.2"/>
+  ${axes.map((a, i) => { const [x, y] = pt(i, rr(a.value)); return `<circle cx="${x}" cy="${y}" r="2.6" fill="#fff4d8"/>`; }).join('')}<circle cx="${C}" cy="${C}" r="4" fill="#e2bf7a"/>`; }
+$('#ava').innerHTML = sigil(D.axes); $('#accNick').textContent = D.nick; $('#fNick').textContent = D.nick;
+$('#skills').innerHTML = D.bars.map(b => `<div class="r ${b.open ? '' : 'cl'}"><span>${esc(b.skill)}</span><i>${b.open ? `<b style="width:${b.value}%"></b>` : ''}</i><em>${b.open ? b.value : '·'}</em></div>`).join('');
+$$('.atabs button').forEach(b => b.onclick = () => { $$('.atabs button').forEach(x => x.setAttribute('aria-selected', String(x === b))); $$('.apanel').forEach(p => p.hidden = p.id !== 'a-' + b.dataset.a); });
+const PEOPLE = [['Технический партнёр', 'Точность до мелочи 88 · Цифры, факты, детали 85', 'Дополняет: сильнее там, где у Андрея середина'], ['Операционный директор', 'Выстроить и держать процесс 91 · Доводить до конца 87', 'Усиливает: берёт ровную часть, которая гасит основателя'], ['Голос продукта', 'Быть на виду 90 · Убеждать и влиять 86', 'Дополняет: выводит продукт к людям']];
+$('#people').innerHTML = PEOPLE.map(([h, s, w]) => `<div class="post"><i class="pa"></i><div><h6>${h} <span class="tag demo">демо</span></h6><p>${s}</p><p class="mut">${w}</p></div></div>`).join('');
+$('#findBtn').onclick = () => $$('.atabs button').find(b => b.dataset.a === 'lyudi').click();
+const PART = [70, 84, 88, 70, 48, 70, 82, 74];
+$('#cmpA').innerHTML = D.axes.map(a => `<li><span>${esc(a.name)}</span><b class="gold">${a.value}</b></li>`).join('');
+$('#cmpB').innerHTML = D.axes.map((a, i) => { const d = PART[i] - a.value, k = Math.abs(d) <= 6 ? ['синергия', 'var(--teal)'] : d > 0 ? ['дополнение', 'var(--brass-hi)'] : ['разрыв', 'var(--ember)'];
+  return `<li><span>${PART[i]}</span><i style="color:${k[1]}">${k[0]}</i></li>`; }).join('');
+const cmp = $('#cmp'); $('#cmpBtn').onclick = () => cmp.classList.add('open'); $('#cmpX').onclick = () => cmp.classList.remove('open'); cmp.addEventListener('click', e => { if (e.target === cmp) cmp.classList.remove('open'); });
+addEventListener('keydown', e => { if (e.key === 'Escape') { cmp.classList.remove('open'); closeSheet(); } });
+
+// этапы: человек, компании, сеть
+const CAB = [
+  ['Дашборд', 'Команда одним экраном', 'Размер команды, риски ухода, покрытие ролей, пульс, открытые позиции. Руководитель видит картину за полминуты.'],
+  ['Команда', 'Профили всех сотрудников', 'Калибр каждого: силы, роли, мотивация. Наложение калибров показывает, где команда сильна и где пусто.'],
+  ['Совместимость', 'Двое или пятеро вместе', 'Как распределить роли, где будет конфликт, как говорить друг с другом.'],
+  ['Риск-матрица', 'Кто на выход', 'Могу по горизонтали, хочу по вертикали. Звёзды, потенциал, риск ухода, балласт. Сигнал, когда человек сдвигается в красную зону.'],
+  ['Светофор', 'Профессиональные навыки команды', 'Таблица «сотрудник и навык». Видно, где дыры и кого нанимать.'],
+  ['Пульс', 'Короткие опросы раз в квартал', 'Тренды по каждому, сигнал, если человек пожелтел.'],
+  ['Найм', 'Кандидат под команду', 'Заявка, вакансия, разбор резюме, совпадение кандидата с командой в тех же 24 силах.'],
+  ['Настройки', 'Команда по ссылке', 'Приглашение сотрудников, роли доступа, связка с hh.ru, отчёты.']];
+function cabMock(i) {
+  if (i === 3) { const P = [[78, 82, 'звезда'], [84, 34, 'риск'], [40, 76, 'потенциал'], [30, 28, ''], [66, 64, ''], [88, 40, 'риск'], [52, 58, '']];
+    return `<svg viewBox="0 0 520 300" width="100%" style="max-width:620px;min-width:360px" aria-hidden="true"><rect x="40" y="10" width="460" height="260" fill="none" stroke="rgba(206,214,228,.18)"/><line x1="270" y1="10" x2="270" y2="270" stroke="rgba(206,214,228,.18)"/><line x1="40" y1="140" x2="500" y2="140" stroke="rgba(206,214,228,.18)"/>
+    <rect x="270" y="140" width="230" height="130" fill="rgba(224,138,114,.08)"/><text x="490" y="262" text-anchor="end" fill="#e08a72" font-size="13">риск ухода</text><text x="490" y="30" text-anchor="end" fill="#6fc8b8" font-size="13">звёзды</text><text x="50" y="30" fill="#f1dcaa" font-size="13">потенциал</text><text x="50" y="262" fill="#8e97a8" font-size="13">балласт</text>
+    ${P.map(([m, h, t]) => `<circle cx="${40 + m * 4.6}" cy="${270 - h * 2.6}" r="7" fill="${t === 'риск' ? '#e08a72' : t === 'звезда' ? '#6fc8b8' : '#f1dcaa'}" fill-opacity=".9"/>`).join('')}
+    <text x="270" y="292" text-anchor="middle" fill="#8e97a8" font-size="12">могу</text><text x="22" y="140" text-anchor="middle" fill="#8e97a8" font-size="12" transform="rotate(-90 22 140)">хочу</text></svg>`; }
+  if (i === 0) return `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:620px">${[['12', 'человек'], ['2', 'риск ухода'], ['75%', 'покрытие ролей'], ['7,4', 'пульс'], ['3', 'позиции'], ['5', 'пар с синергией']].map(([b, s]) => `<div style="border:1px solid var(--line);border-radius:16px;padding:14px"><b style="font-weight:200;font-size:30px;color:var(--brass-hi)">${b}</b><div class="mut" style="font-size:13px">${s}</div></div>`).join('')}</div>`;
+  if (i === 4) { const N = ['Аналитика', 'Продажи', 'Код', 'Дизайн', 'Процессы'], S = [[3, 2, 1, 3, 2], [1, 3, 2, 2, 3], [2, 1, 3, 1, 2], [3, 3, 1, 2, 1]], col = ['', '#e08a72', '#f1dcaa', '#6fc8b8'];
+    return `<div style="display:grid;grid-template-columns:110px repeat(5,minmax(48px,1fr));gap:8px;max-width:620px;min-width:420px;font-size:13px"><span></span>${N.map(n => `<span class="mut">${n}</span>`).join('')}${S.map((r, k) => `<span class="mut">Сотрудник ${k + 1}</span>${r.map(v => `<i style="height:26px;border-radius:8px;background:${col[v]};opacity:.75"></i>`).join('')}`).join('')}</div>`; }
+  return '';
+}
+const STG = [
+  ['Год 1', 'Человек', () => `<p>КАЛИБР для человека: узнать свой калибр и вырастить его. Платит человек за себя.</p>
+    <div class="three"><div><h4>Дверь <span class="tag ok">работает</span></h4><p>Первая часть и разбор: прозвище, силы, сферы, где раскроется и где выгорит, решения.</p></div>
+    <div><h4>Кабинет <span class="tag ok">работает</span></h4><p>Калибр на циферблате, силы в процентах, статус, решения как план. Возвращаться есть зачем.</p></div>
+    <div><h4>Рост <span class="tag soon">скоро</span></h4><p>Курсы с коэффициентом прироста, проверочный тест, сертификат КАЛИБРа и партнёров, ИИ-наставник, новый замер.</p></div></div>`],
+  ['Год 2', 'Компании', () => `<p>Тот же движок для работодателя. Компания видит команду в тех же 24 силах: кто на своём месте, кто готов уйти, кого нанять, кто с кем сработается. Плюс человек в странах рядом.</p>
+    <div class="three"><div><h4>Хочу</h4><p>Карта мотивации: что включает каждого. Где команде дают не то, что её двигает.</p></div>
+    <div><h4>Могу</h4><p>Карта компетенций: что команда умеет и где дыра, которую закроет только найм.</p></div>
+    <div><h4>Кто на выход</h4><p>Риск-матрица: сильный профессионал с невыполненными ожиданиями уходит первым. Это видно заранее.</p></div></div>
+    <div class="cab"><nav role="tablist" aria-label="Разделы кабинета руководителя" id="cabNav"></nav><div class="cv" role="tabpanel" id="cabView"></div></div>`],
+  ['Год 3', 'Сеть', () => `<p>Когда людей достаточно, профили начинают находить друг друга: партнёры, команда, работа, инвесторы. Плюс первый выход на мир.</p>
+    <div class="loops"><div><h4>«А я кто?»</h4><p>Прозвище уходит в сторис, друг идёт узнать свой калибр. Рост без рекламы.</p></div>
+    <div><h4>«Сравнись со мной»</h4><p>Двое сравнивают калибры: синергия, дополнение, разрыв. Каждый приводит следующего.</p></div>
+    <div><h4>Команда по ссылке</h4><p>Руководитель зовёт команду, и каждый сотрудник получает свой калибр.</p></div>
+    <div><h4>Рост виден</h4><p>Подтверждённая сила появляется в ленте. Повод вернуться и повод для партнёров найти тебя.</p></div></div>`]];
+const tr = $('#track'), sgv = $('#stageView');
+tr.innerHTML = STG.map(([y, t], i) => `<button role="tab" aria-selected="${i === 0}" data-i="${i}"><small>${y}</small><b>${t}</b></button>`).join('');
+const showC = i => { const cn = $('#cabNav'), cvv = $('#cabView'); pick(cn, i); const [, h, p] = CAB[i];
+  cvv.innerHTML = `<div class="head"><h4>${h}</h4><span class="tag demo">прототип</span></div><p>${p}</p><div class="mock">${cabMock(i)}</div>`; };
+const showStage = i => { pick(tr, i); sgv.innerHTML = STG[i][2]();
+  if (i === 1) { const cn = $('#cabNav'); tabs(cn, CAB.map(c => c[0]), 0); cn.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showC(+b.dataset.i); }); showC(0); } };
+tr.addEventListener('click', e => { const b = e.target.closest('button'); if (b) showStage(+b.dataset.i); }); showStage(0);
+
+// конкуренты: карта и таблица
+const RIV = [
+  ['Тесты личности', '16Personalities, CliftonStrengths', 'Описание себя по своим же ответам. Миллионы прохождений', 'Проверки поступками нет, к делу, работе и людям не ведут', .12, .26],
+  ['Профориентация', '«Билет в будущее», тесты онлайн-школ', 'Подсказка школьнику или вход в продажу курсов', 'Взрослых нет, честного ответа, где человек выгорит, нет', .22, .1],
+  ['Оценка для компаний', 'ЭКОПСИ, «Актион 360», SHL, Hogan', 'Точная оценка для работодателя', 'Сам человек не получает ничего для себя', .55, .36],
+  ['Сайты работы', 'hh.ru', 'Резюме и вакансии, живой профиль', 'Резюме это самоописание, силу человека не видно', .12, .68],
+  ['КАЛИБР', 'человек, компании, сеть', 'Каждый вывод проверен поступками. Профиль живёт, растёт и находит людей', 'Один язык для человека и компании', .84, .84]];
+(function rivMap() { const X0 = 60, Y0 = 410, W = 470, H = 370;
+  $('#rivMap').innerHTML = `<rect x="${X0}" y="${Y0 - H}" width="${W}" height="${H}" fill="none" stroke="rgba(206,214,228,.16)"/>
+  <line x1="${X0 + W / 2}" y1="${Y0 - H}" x2="${X0 + W / 2}" y2="${Y0}" stroke="rgba(206,214,228,.1)"/><line x1="${X0}" y1="${Y0 - H / 2}" x2="${X0 + W}" y2="${Y0 - H / 2}" stroke="rgba(206,214,228,.1)"/>
+  <text x="${X0}" y="${Y0 + 26}" fill="#8e97a8" font-size="13">вывод по самоописанию</text><text x="${X0 + W}" y="${Y0 + 26}" fill="#8e97a8" font-size="13" text-anchor="end">вывод по поступкам</text>
+  <text x="${X0 - 14}" y="${Y0}" fill="#8e97a8" font-size="13" transform="rotate(-90 ${X0 - 14} ${Y0})">разовый отчёт</text><text x="${X0 - 14}" y="${Y0 - H}" fill="#8e97a8" font-size="13" text-anchor="end" transform="rotate(-90 ${X0 - 14} ${Y0 - H})">живой профиль, рост, люди</text>
+  ${RIV.map(([t, , , , x, y], k) => { const cx = X0 + x * W, cy = Y0 - y * H, me = k === RIV.length - 1;
+    return `<circle cx="${cx}" cy="${cy}" r="${me ? 12 : 8}" fill="${me ? '#f1dcaa' : 'rgba(206,214,228,.55)'}"${me ? ' stroke="#d6b678" stroke-width="6" stroke-opacity=".25"' : ''}/><text x="${cx + (x > .75 ? -18 : 16)}" y="${cy + 5}" fill="${me ? '#f1dcaa' : '#c4cad6'}" font-size="${me ? 20 : 16}" text-anchor="${x > .75 ? 'end' : 'start'}">${t}</text>`; }).join('')}`;
+  $('#rivTab').innerHTML = RIV.map(([t, w, g, n], k) => `<div class="${k === RIV.length - 1 ? 'me' : ''}"><h4>${t}<small>${w}</small></h4><p>${g}.${k === RIV.length - 1 ? ' ' + n + '.' : ` <span class="mut">${n}.</span>`}</p></div>`).join(''); })();
+
+// команда
+$('#fShare').innerHTML = `${esc(D.share)}<small>Фраза, которую КАЛИБР дал основателю для пересылки</small>`;
+$('#fStr').innerHTML = D.strengths.map(s => `<div><h4>${esc(s.title)}</h4><p class="fd">${esc(s.desc)}</p><p>${esc(s.skills.join(', '))}</p></div>`).join('');
+const ROLES = [['Технический директор', 'Архитектура, данные, безопасность, масштаб на миллионы людей'], ['Разработка', 'Веб и мобильное приложение, кабинет, сеть'], ['Методолог-психометрист', 'Научная проверка точности, сверка с признанными методиками'], ['Продуктовый дизайнер', 'Путь человека, кабинет, циферблат калибра'],
+  ['Маркетинг и рост', 'Контент, петли «прозвище» и «сравнись со мной», сообщество'], ['Партнёрства с образованием', 'Курсы под силы человека, сертификаты партнёров'], ['Продажи для компаний', 'Пилоты, кабинет руководителя, корпоративные тарифы'], ['Данные и аналитика', 'Точность по банку вердиктов, воронка, исходы через 6–12 месяцев']];
+$('#roles').innerHTML = ROLES.map(([h, p]) => `<div><h4>${h}</h4><p>${p}</p></div>`).join('');
+
+// циферблат на первом экране: объёмный, а если 3D недоступно, плоский из кабинета; остальная страница от этого не зависит
+async function startDial() {
+  try {
+    if (!window.WebGLRenderingContext) throw new Error('нет WebGL');
+    await document.fonts.ready;
+    const mountDial = await Promise.race([loadDial(), new Promise((_, no) => setTimeout(() => no(new Error('3D не загрузилось за 10 с')), 10000))]);
+    const dialApi = mountDial($('#dial'), { axes: D.axes, bars: D.bars, nickname: D.nick }, {});
+    addEventListener('scroll', () => { dialApi.state.scroll = Math.min(1, scrollY / innerHeight) * 0.6; }, { passive: true });
+    new IntersectionObserver(es => { dialApi.state.visible = es[0].isIntersecting; }).observe($('#nachalo'));
+  } catch (e) {
+    console.warn('плоский циферблат:', e && e.message);
+    $('#dial').hidden = true; const w = $('#dial2d'); w.hidden = false;
+    if (window.KDial) window.KDial.mount(w, { axes: D.axes, bars: D.bars, nickname: D.nick });
+  }
+}
+startDial();
+</script>
+</body>
+</html>

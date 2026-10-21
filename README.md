@@ -2,4 +2,6 @@
 
 Сайт-знакомство с проектом КАЛИБР: социальная сеть, где человека видно по его силе.
 
-Один файл `index.html`, страница открывается по адресу https://kalibr-app.github.io
+Страница: https://kalibr-app.github.io (один файл `index.html`).
+
+Исходники в `src/`. Сборка: `cd src && node build.mjs github` пишет `../index.html` с встроенными картинками.
